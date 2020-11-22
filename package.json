@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node app.js"
+    "start": "nodemon app.js"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^1.0.0-rc.4",
@@ -12,10 +12,19 @@
     "debug": "~2.6.9",
     "dynamodb": "^1.2.1",
     "express": "~4.16.1",
+    "express-ws": "^4.0.0",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
     "mongodb": "^3.6.2",
+    "mongoose": "^5.10.13",
+    "mongoose-validator": "^2.1.0",
     "morgan": "~1.9.1",
+    "socket.io": "^3.0.1",
+    "socket.io-client": "^3.0.1",
+    "ws": "^7.4.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^6.9.2",
     "nodemon": "^2.0.6"
   }
 }

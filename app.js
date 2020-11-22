@@ -7,104 +7,37 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-
 var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+var expressWs = require('express-ws');
+
+const dbModule = require('./db');
 
 //---------------------------------------------------------------------------//
-// AWS-SDK
+// Configuration
 //---------------------------------------------------------------------------//
 
-var AWS = require('aws-sdk');
+process.env.NODE_ENV = 'development';
 
 //---------------------------------------------------------------------------//
-// Database
+// Database Connection
 //---------------------------------------------------------------------------//
 
-var MongoClient = require('mongodb').MongoClient;
+dbModule.connect();
 
-var f = require('util').format;
-var fs = require('fs');
-var ca = [fs.readFileSync("rds-combined-ca-bundle.pem")];
+//---------------------------------------------------------------------------//
+// Initialize Application
+//---------------------------------------------------------------------------//
 
-// Connection URL
-//const url = 'mongodb://localhost:27017';
-//const url = 'mongodb://huthanh89:huynht123@docdb-2020-11-04-22-22-04.cluster-chvc4ktfzp6x.us-east-2.docdb.amazonaws.com:27017/?ssl=true&ssl_ca_certs=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false';
-
-// Database Name
-const dbName = 'aws_local';
-
-var dbClient = null;
-
-// Use connect method to connect to the server
-
-async function connect(){
-
-    let options = {
-        useUnifiedTopology: true
-    }
-
-    await MongoClient.connect(url, options, function(err, client) {
-
-        if(err){
-            console.log(err)
-        }
-
-        console.log("Connected successfully to database server");
-        dbClient = client.db(dbName);
-    });
-};
-
-async function close(){
-    await dbClient.close();
-};
-
-function getClient(){
-    return dbClient;
-};
-
-//connect();
-
-//const url = 'mongodb://localhost:27017';
-const url = 'mongodb://huthanh89:huynht123@docdb-2020-11-04-22-22-04.cluster-chvc4ktfzp6x.us-east-2.docdb.amazonaws.com:27017/?ssl=true&ssl_ca_certs=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false';
-
-var client = MongoClient.connect(url, 
-    { 
-        sslValidate: true,
-        sslCA: ca,
-        useNewUrlParser: true,
-        useUnifiedTopology:true
-    },
-    function(err, client) {
-        if(err)
-            throw err;
-            
-        //Specify the database to be used
-        db = client.db('sample-database');
-        
-        //Specify the collection to be used
-        col = db.collection('sample-collection');
-    
-        //Insert a single document
-        col.insertOne({'hello':'Amazon DocumentDB'}, function(err, result){
-        //Find the document that was previously written
-        col.findOne({'hello':'Amazon DocumentDB'}, function(err, result){
-            //Print the result to the screen
-            console.log(result);
-            
-            //Close the connection
-            client.close()
-        });
-    });
-});
-
-
+var app = express();
+const http = require('http').createServer(app);
+var io = require('socket.io')(http);
 
 //---------------------------------------------------------------------------//
 // App Configurations
 //---------------------------------------------------------------------------//
 
-var app = express();
+// Initialize websocket.
+expressWs(app);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -114,56 +47,78 @@ app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+// Set static files location.
 app.use(express.static(path.join(__dirname, 'public')));
 
 //---------------------------------------------------------------------------//
-// Routes Handlers
+// Variables 
 //---------------------------------------------------------------------------//
 
-//app.use('/', indexRouter);
-//app.use('/users', usersRouter);
+let eventCount = 0;
 
-app.get('/', function (req, res) {
-    res.send({ 
-        title: "MongoDB API Entry Point" 
+let wsConnections = [];
+
+let wsConnection = {
+    ws: null,
+    userId: ''
+}
+
+//---------------------------------------------------------------------------//
+// Routes 
+//---------------------------------------------------------------------------//
+
+app.use('/', indexRouter);
+
+//---------------------------------------------------------------------------//
+// Websocket Routes 
+//---------------------------------------------------------------------------//
+
+
+app.ws('/instructor', function(ws, req) {
+
+    instructorWs = ws;
+
+    ws.on('message', function(msg) {
+        console.log(JSON.parse(msg));
+        ws.send(msg);
     });
-})
+});
 
-app.get('/get', async function (req, res) {
+
+//---------------------------------------------------------------------------//
+// SocketIO event handlers
+//---------------------------------------------------------------------------//
+
+io.on('connection', function(socket) {
+
+    console.log(socket.id)
+    console.log(socket.handshake.query)
+
+    // User connected
+    console.log(`User connected - ${socket.id}`);
+    io.emit('chat.message', `login - ${socket.id}`);
     
-    console.log('GET');
-
-    const database = dbClient;
-    const collection = database.collection('animals');
-
-    const users = await collection.find().toArray(async function(err, items){
-
-        res.json(items);
-
+    // Join room
+    socket.join('room1');
+    socket.to('room1').emit('cool', 'cool');
+    
+    socket.on('event', function(data){ 
+        console.log(data);
     });
-
+    
+    socket.on('disconnect', function(){ 
+        console.log('io disconnected');
+    });
+    
+    socket.on('chat.message', function(msg) {
+        console.log(`${msg} - ${socket.id} - ${socket.rooms}` );
+        io.emit('chat.message', msg);
+        socket.to('room1').emit('privateRoom', 'cool');
+    });
 
 });
 
-app.get('/post', async function (req, res) {
-
-    console.log('POST');
-
-    const database = dbClient;
-    const collection = database.collection('animals');
-
-    let newUser = {
-        name: 'bob',
-        age: 22,
-    }
-    
-    const result = await collection.insertOne(newUser);
-
-    res.json({
-        user: newUser
-    });
-
-});
 
 //---------------------------------------------------------------------------//
 // Middleware
@@ -189,8 +144,13 @@ app.use(function(err, req, res, next) {
 // Start Server
 //---------------------------------------------------------------------------//
 
-app.listen(process.env.PORT || 3000);
-console.log("-- Node Server Started -- ")
+let port = process.env.PORT || 3000;
+//app.listen(port);
+
+http.listen(port, () => {
+    console.log(`-- Node Server started on port ${port} --`);
+});
+
 
 //---------------------------------------------------------------------------//
 // Exports
