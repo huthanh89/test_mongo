@@ -31,7 +31,6 @@ async function useDevServer(){
         console.error(err);
     });
 
-
 }
 
 async function useProductionServer(){
@@ -60,6 +59,7 @@ async function useProductionServer(){
 async function connect(){
     //await useDevServer();
     await useProductionServer();
+
 }
 
 async function close(){

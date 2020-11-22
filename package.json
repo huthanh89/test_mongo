@@ -22,6 +22,7 @@
     "socket.io": "^3.0.1",
     "socket.io-client": "^3.0.1",
     "ws": "^7.4.0"
+
   },
   "devDependencies": {
     "mongodb-memory-server": "^6.9.2",

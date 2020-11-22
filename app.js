@@ -12,11 +12,13 @@ var expressWs = require('express-ws');
 
 const dbModule = require('./db');
 
+const dbModule = require('./db');
+
 //---------------------------------------------------------------------------//
 // Configuration
 //---------------------------------------------------------------------------//
 
-process.env.NODE_ENV = 'development';
+process.env.NODE_ENV = 'production';
 
 //---------------------------------------------------------------------------//
 // Database Connection
@@ -150,7 +152,6 @@ let port = process.env.PORT || 3000;
 http.listen(port, () => {
     console.log(`-- Node Server started on port ${port} --`);
 });
-
 
 //---------------------------------------------------------------------------//
 // Exports
