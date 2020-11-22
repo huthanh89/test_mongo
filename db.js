@@ -3,6 +3,7 @@
 //---------------------------------------------------------------------------//
 
 const mongoose = require('mongoose');
+const aws = require('./aws');
 
 //---------------------------------------------------------------------------//
 // Variables
@@ -41,22 +42,24 @@ async function useProductionServer(){
     
     const ca = await aws.getS3File('thanh-s3awsbucket', 'rds-combined-ca-bundle.pem');
     
-    let dbOption = {
+    await mongoose.connect(uri, {
         sslValidate: true,
         sslCA: [ca],
         useNewUrlParser: true,
         useUnifiedTopology:true
-    }
-    await mongoose.connect('mongodb://localhost:27017/mongoose', {
-        useNewUrlParser: true, 
-        useUnifiedTopology: true
-    });
+    })    
+    .then(function(){
+        console.log('connected to Production database');
+    })
+    .catch(function(error){
+        console.error('ERROR - ', error);
+    });;
     
-    console.log('connected to Production database');
 }
 
 async function connect(){
-    await useDevServer();
+    //await useDevServer();
+    await useProductionServer();
 }
 
 async function close(){
